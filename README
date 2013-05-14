@@ -2,3 +2,5 @@ dependencies:
     python-libtorrent-rasterbar
     python-requests
     opentracker
+    rsync
+    mktorrent
