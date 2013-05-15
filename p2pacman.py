@@ -22,14 +22,16 @@ ses.listen_on(6881, 6891)
 # properly remove object
 # verbose flag for additional information
 # pacman like usage: python-progressbar
-# p2p packet list
-# torrent timout and then use normal dl
+# p2p packet database list
 
 packages = []
 
 class torrent:          
-        def __init__(self, path):
+        def __init__(self, path, link):
                 self.path = path
+                self.starttime = time.time()
+                self.lastactivity = ""
+                self.link = link
                                 
                 info = lt.torrent_info(path)
                 self.h = ses.add_torrent(info, "/var/cache/pacman/pkg/")
@@ -52,19 +54,30 @@ class torrent:
                     (s.progress * 100, s.download_rate / 1000, s.upload_rate / 1000, \
                     s.num_peers))
                     #s.num_peers, state_str[s.state]))
+	
+        def idle(self):
+            s = self.h.status()
+            if s.progress != self.lastactivity:
+                self.lastactivity = s.progress
+                self.starttime = time.time()
+                return 0
+            else:
+                return time.time()-self.starttime
                 
 class threadstart(threading.Thread):
-        def __init__(self, path):
+        def __init__(self, path, link):
                 threading.Thread.__init__(self)
                 self.path = path
+                self.link = link
         def run(self):
                 #logging.debug('Loading torrent file in thread: '+self.path)
                 print("Loading torrent file in thread")
-                package = torrent(self.path)
+                package = torrent(self.path, self.link)
                 packages.append(package)
 
-print("syncing pacman database ...")
-process = subprocess.Popen(['pacman', '-Syup'], shell=False, stdout=subprocess.PIPE)
+os.system("pacman -Sy")
+print(":: Starting full system upgrade...")
+process = subprocess.Popen(['pacman', '-Sup'], shell=False, stdout=subprocess.PIPE)
 processret = str(process.communicate()[0])                          # get python stdout
 processret = processret.replace("pkg.tar.xz","pkg.tar.xz.torrent")  # append to every link .torrent
 
@@ -90,7 +103,7 @@ for link in torrentlinks:
     else:
         print("error: your mirror doesn't have proper torrent support")
         exit(1)
-    thread = threadstart("/var/cache/pacman/pkg/"+link.split('/')[-1])
+    thread = threadstart("/var/cache/pacman/pkg/"+link.split('/')[-1],link)
     thread.start()
     time.sleep(5)
 
@@ -99,6 +112,23 @@ while len(packages):
     print("downloading "+str(len(packages))+" package(s):")
     for torrent in packages:
         torrent.print_state()
+        if torrent.idle() > 60:
+             print("timeout reached, skipping torrent. idle time: %d" % torrent.idle())
+             print("starting manual direct download of: %s" % vars(torrent)['link'].split('/')[-1].replace('.torrent',''))
+             packages.pop(-1)
+             try:
+                  r = requests.get(vars(torrent)['link'].replace('.torrent',''))
+             except:
+                  print("error: mirror refues the connection, aborting.")
+                  exit(1)
+             if r.status_code == 200:
+                  with open("/var/cache/pacman/pkg/"+vars(torrent)['link'].split('/')[-1].replace('.torrent',''), 'wb') as f:
+                       for chunk in r.iter_content():
+                            f.write(chunk)
+                       f.close
+             else:
+                  print("error: your mirror doesn't have proper torrent support")
+                  exit(1)
         if not torrent.return_state():
             packages.pop(-1)
     time.sleep(5)
