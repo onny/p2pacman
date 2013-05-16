@@ -1,0 +1,11 @@
+[Unit]
+Description=p2pacman Daemon
+After=network.target
+
+[Service]
+#User=
+ExecStart=/usr/bin/p2pacmand
+ExecStop=/bin/kill -INT $MAINPID
+
+[Install]
+WantedBy=multi-user.target
