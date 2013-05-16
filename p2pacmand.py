@@ -9,6 +9,8 @@ import os
 #logging.basicConfig(level=DEBUG)
 # rescanning package cache every X seconds
 # nach einer zeit "stalled" das seeding
+# nicht packete hinzufügen, wenn pacman db log aktiv
+# systemd service file
 
 ses = lt.session()
 

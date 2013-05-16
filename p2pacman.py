@@ -7,6 +7,7 @@ import libtorrent as lt
 import time
 from sys import exit
 import os
+import progressbar
 
 ses = lt.session()
 
@@ -23,6 +24,7 @@ ses.listen_on(6881, 6891)
 # verbose flag for additional information
 # pacman like usage: python-progressbar
 # p2p packet database list
+# libtorrent python3 bindings 32bit systeme failed noch
 
 packages = []
 
